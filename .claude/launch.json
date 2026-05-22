@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "klo",
+      "runtimeExecutable": "/opt/homebrew/bin/node",
+      "runtimeArgs": ["/Users/stephanemeledje/KLô/node_modules/.bin/next", "dev"],
+      "port": 3000
+    }
+  ]
+}
