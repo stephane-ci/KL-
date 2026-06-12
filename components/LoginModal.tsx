@@ -125,42 +125,39 @@ export default function LoginModal({ onClose, onSuccess, showToast }: LoginModal
       return
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email, password,
-      options: {
-        data: {
-          nom_complet: nom,
-          type_profil: typeProfil,
-        }
-      }
+    // Inscription via API route serveur (contourne trigger + RLS)
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email, password,
+        nom_complet: nom,
+        type_profil: typeProfil,
+        pays_residence: paysResidence,
+        telephone: telephone || null,
+      }),
     })
 
-    if (error) { showToast(error.message, 'error'); setLoading(false); return }
+    const result = await res.json()
 
-    if (data.user) {
-      // Compléter le profil (le trigger crée la ligne de base)
-      await supabase.from('profils').upsert({
-        id: data.user.id,
-        nom_complet: nom,
-        email,
-        telephone: telephone || null,
-        pays_residence: paysResidence,
-        type_profil: typeProfil,
-        statut_kyc: 'non_soumis',
-        is_admin: false,
-        is_super_admin: false,
-      })
-
-      // Si Supabase requiert une confirmation email
-      if (!data.session) {
-        setMode('email-sent')
-        setLoading(false)
-        return
-      }
-
-      const { data: profil } = await supabase.from('profils').select('*').eq('id', data.user.id).single()
-      if (profil) onSuccess(profil)
+    if (!res.ok || result.error) {
+      showToast(result.error || "Erreur lors de l'inscription", 'error')
+      setLoading(false)
+      return
     }
+
+    // Injecter la session retournée par le serveur
+    if (result.session) {
+      await supabase.auth.setSession({
+        access_token: result.session.access_token,
+        refresh_token: result.session.refresh_token,
+      })
+      const { data: profil } = await supabase.from('profils').select('*').eq('id', result.user.id).single()
+      if (profil) { onSuccess(profil); setLoading(false); return }
+    }
+
+    // Fallback : confirmation email
+    setMode('email-sent')
     setLoading(false)
   }
 
